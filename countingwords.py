@@ -6,6 +6,7 @@ from nltk.corpus import stopwords
 from collections import Counter
 from sklearn.metrics import jaccard_similarity_score
 from tqdm import tqdm
+import threading
 
 import pandas as pd
 
@@ -116,11 +117,16 @@ def save_file_with_frequent_words(origin_csv):
     # print (df['webURL'].to_string())
     # df['frequentwords'] = make_set_of_most_common_words(df['webURL'].to_string(index=False))
     # print (df.head(4))
-    df.to_csv(r'NewYorkTimesArticlesWithFrequentWords.csv')
+    df.to_csv(f'{origin_csv}_pro')
+
+
 
 if __name__=="__main__":
 
     # csv = "ArticlesByYear/NewYorkTimesArticlesFullDb.csv"
     csv = "ArticlesNYT2020-3.csv"
-    start = time.time()
-    save_file_with_frequent_words(csv)
+    for year in range(2013,2021):
+        thread = threading.Thread(target=save_file_with_frequent_words, args=(f"ArticlesByYear/NewYorkTimesArticles{year}.csv",))
+        thread.start()
+
+    # save_file_with_frequent_words(csv)
