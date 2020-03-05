@@ -28,11 +28,13 @@ def extract_text(url):
     text = ''
     try:
         html = requests.get(url)
-        soup = BeautifulSoup(html.content, 'html.parser')
+
     except requests.exceptions.HTTPError as e:
         print(e)
         print(f'ERROR IN URL:{url}')
+        return text
 
+    soup = BeautifulSoup(html.content, 'html.parser')
     paragraphs = soup.find_all("p", class_="css-exrw3m evys1bk0")
     for p in paragraphs:
         text += p.text
@@ -118,6 +120,7 @@ def save_file_with_frequent_words(origin_csv):
 
 if __name__=="__main__":
 
+    # csv = "ArticlesByYear/NewYorkTimesArticlesFullDb.csv"
     csv = "ArticlesNYT2020-3.csv"
     start = time.time()
     save_file_with_frequent_words(csv)
