@@ -3,13 +3,19 @@ from bs4 import BeautifulSoup
 import nltk
 # nltk.download()
 from nltk.corpus import stopwords
-stop_words = set(stopwords.words('english'))
 from collections import Counter
 from sklearn.metrics import jaccard_similarity_score
+from tqdm import tqdm
 
 import pandas as pd
 
 import time
+
+stop_words = set(stopwords.words('english'))
+stop_words.add('—')
+stop_words.add('And')
+tqdm.pandas()
+
 
 
 
@@ -17,23 +23,30 @@ import time
 # url1 = "https://www.nytimes.com/2018/04/24/dining/noma-restaurant-copenhagen.html"
 # trunp_url="https://www.nytimes.com/2018/04/24/world/europe/trump-macron-iran-climate.html"
 # trunp_2 = "https://www.nytimes.com/2018/04/23/opinion/supreme-court-travel-ban-trump.html"
-def make_set_of_most_common_words(url,num_of_commom_words=50):
-    html = requests.get(url)
-    soup = BeautifulSoup(html.content, 'html.parser')
+
+def extract_text(url):
+    text = ''
+    try:
+        html = requests.get(url)
+        soup = BeautifulSoup(html.content, 'html.parser')
+    except requests.exceptions.HTTPError as e:
+        print(e)
+        print(f'ERROR IN URL:{url}')
 
     paragraphs = soup.find_all("p", class_="css-exrw3m evys1bk0")
-    text = ""
     for p in paragraphs:
-        text +=p.text
-        # text += "\n\n"
+        text += p.text
+
+    return text
 
 
-    # text = " i like big buts and i cannot lie"
+def make_set_of_most_common_words(url, num_of_commom_words=50):
+    text = extract_text(url)
+
+    # text = " i like big buts and i cannot lie, your other brothers can't deny"
     # split() returns list of all the words in the string
     split_it = text.split()
 
-    stop_words.add('—')
-    stop_words.add('And')
 
 
     stop_filtered = [w for w in split_it if not w in stop_words]
@@ -51,7 +64,7 @@ def make_set_of_most_common_words(url,num_of_commom_words=50):
     most_occur_words = [x[0] for x in most_occur]
 
     # print(set(most_occur_words))
-    return  most_occur_words
+    return most_occur_words
 
 
 
@@ -82,21 +95,20 @@ def return_jaccard_score_from_2_urls(url1,url2):
 def save_file_with_frequent_words(origin_csv):
     df = pd.read_csv(origin_csv)
 
-    most_common = []
+    # most_common = []
+    #
+    #
+    # for ind, row in df.iterrows():
+    #     URL = row['webURL']
+    #
+    #     most_common.append(make_set_of_most_common_words(URL))
+    #
+    #     if (ind%500==0):
+    #         print (ind)
+    #         print (time.time()-start)
 
 
-    for ind, row in df.iterrows():
-        URL = row['webURL']
-
-        most_common.append(make_set_of_most_common_words(URL))
-
-        if (ind%500==0):
-            print (ind)
-            print (time.time()-start)
-
-
-    df['frequent_words'] = most_common
-    print (df)
+    df['frequent_words'] = df['webURL'].progress_apply(make_set_of_most_common_words)
 
 
     # print (df['webURL'].to_string())
@@ -106,6 +118,6 @@ def save_file_with_frequent_words(origin_csv):
 
 if __name__=="__main__":
 
-    csv = "NewYorkTimesArticlesFullDb.csv"
+    csv = "ArticlesNYT2020-3.csv"
     start = time.time()
     save_file_with_frequent_words(csv)
