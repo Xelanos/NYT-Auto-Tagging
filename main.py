@@ -1,3 +1,5 @@
+import itertools
+
 from datasketch import MinHash, MinHashLSHForest
 from countingwords import make_set_of_most_common_words
 from bs4 import BeautifulSoup
@@ -6,80 +8,124 @@ import requests
 import pickle
 import ast
 import re
+import numpy as np
+from nltk import PorterStemmer
+ps = PorterStemmer()
 
 import multiprocessing
+from multiprocessing import Pool
 from functools import partial
 
-from tqdm import tqdm
-import numpy as np
-
-tqdm.pandas()
+from pandarallel import pandarallel
 
 forest = MinHashLSHForest(num_perm=50)
 
 
-def make_min_hash(words, num_perm=20):
+
+def make_min_hash(words, num_perm=50):
     min_hash = MinHash(num_perm)
     for word in words:
         min_hash.update(word.encode('utf8'))
     return min_hash
 
 
-def add_to_forest(url):
-    html = requests.get(url)
-    soup = BeautifulSoup(html.content, 'html.parser')
+def make_min_hash_list(df):
+    res = []
+    i = 0
+    full = len(df.webURL)
+    for url in df.webURL:
+        html = requests.get(url)
+        soup = BeautifulSoup(html.content, 'html.parser')
 
-    paragraphs = soup.find_all("p", class_="css-exrw3m evys1bk0")
-    text = ""
-    for p in paragraphs:
-        text += p.text
-    wordList = re.sub("[^\w]", " ", text).split()
-    min_hash = make_min_hash(wordList, 50)
-    forest.add(url, min_hash)
+        paragraphs = soup.find_all("p", class_="css-exrw3m evys1bk0")
+        text = ""
+        for p in paragraphs:
+            text += p.text
+        wordList = re.sub("[^\w]", " ", text).split()
+        res.append((url, make_min_hash(wordList, 60)))
+        if i % 100 == 0: print(f'{i}/{full}')
+        i += 1
+    return res
 
 
-def _df_split(tup_arg, **kwargs):
-    split_ind, df_split, df_f_name = tup_arg
-    return (split_ind, getattr(df_split, df_f_name)(**kwargs))
+def download_article(df):
+    result = {}
+    i = 0
+    full = len(df.webURL)
+    for url in df.webURL:
+        html = requests.get(url)
+        soup = BeautifulSoup(html.content, 'html.parser')
+
+        paragraphs = soup.find_all("p", class_="css-exrw3m evys1bk0")
+        text = ""
+        for p in paragraphs:
+            text += p.text
+        result[url] = text
+        if i % 100 == 0: print(f'{i}/{full}')
+        i += 1
+
+    return pd.DataFrame.from_dict(result, orient='index', columns=['webURL, Text'])
 
 
-def df_multi_core(df, df_f_name, subset=None, njobs=-1, **kwargs):
-    if njobs == -1:
-        njobs = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(processes=njobs)
 
-    try:
-        splits = np.array_split(df[subset], njobs)
-    except ValueError:
-        splits = np.array_split(df, njobs)
 
-    pool_data = [(split_ind, df_split, df_f_name) for split_ind, df_split in
-                 enumerate(splits)]
-    results = pool.map(partial(_df_split, **kwargs), pool_data)
+
+def parallelize_dataframe(df, func, n_cores=4):
+    df_split = np.array_split(df, n_cores)
+    pool = Pool(n_cores)
+    # multi = pool.map(func, df_split)
+    # result = list(itertools.chain.from_iterable(multi))
+    df = pd.concat(pool.map(func,df_split))
+
     pool.close()
     pool.join()
-    results = sorted(results, key=lambda x: x[0])
-    results = pd.concat([split[1] for split in results])
-    return results
-
+    return df
 
 if __name__ == '__main__':
     csv = 'ArticlesByYearWithCommonWords/NewYorkTimesArticles2020-CommonWords.csv'
     df = pd.read_csv(csv)
     df.drop_duplicates(subset='webURL', keep=False, inplace=True)
-    df.webURL.progress_apply(add_to_forest)
+    min_hased = parallelize_dataframe(df, download_article)
+    min_hased.to_csv('NewYorkTimesArticles2020-Text.csv')
+    # forest = MinHashLSHForest(num_perm=60)
+    # for min in min_hased:
+    #     url, hashed = min
+    #     forest.add(url, hashed)
+    # df.webURL.parallel_apply(add_to_forest)
     # for index, words in freq_words.iteritems():
     #     words = ast.literal_eval(words)
     #     min_hash = make_min_hash(words)
     #     forest.add(f'{index}', min_hash)
 
-    forest.index()
+    # forest.index()
+    #
+    # pickle.dump(forest, open("forest2020-2.p", "wb"))
 
-    pickle.dump(forest, open("forest.p", "wb"))
+    # forest = pickle.load(open('forest.p', 'rb'))
+    #
+    # # url = 'https://www.nytimes.com/2020/03/07/world/coronavirus-news.html'
+    # # url = 'https://www.nytimes.com/2020/02/23/world/australia/climate-change-extremes.html'
+    # url = 'https://www.nytimes.com/2020/03/06/us/politics/trump-mark-meadows-mick-mulvaney.html'
+    #
+    # html = requests.get(url)
+    # soup = BeautifulSoup(html.content, 'html.parser')
+    #
+    # paragraphs = soup.find_all("p", class_="css-exrw3m evys1bk0")
+    # text = ""
+    # for p in paragraphs:
+    #     text += p.text
+    # wordList = re.sub("[^\w]", " ", text).split()
+    #
+    # print(make_set_of_most_common_words(url))
+    #
+    # query = make_min_hash(wordList, 60)
+    # result = forest.query(query, 2)
+    # for url in result:
+    #     print(url)
+    #     row = df[df['webURL'] == url]
+    #     print(row['keywords'].values)
+    #     print(row['frequent_words'].values)
+    #     print('\n')
 
-    url = 'https://www.nytimes.com/2019/10/02/sports/california-college-athletes-paid-ncaa.html'
 
-    tt = make_set_of_most_common_words(url)
-    query = make_min_hash(tt)
-    result = forest.query(query, 3)
-    print(result)
+    # print(result)
