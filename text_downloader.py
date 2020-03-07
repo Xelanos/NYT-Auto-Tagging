@@ -21,7 +21,7 @@ def download_article(df):
         if i % 100 == 0: print(f'{i}/{full}')
         i += 1
 
-    return pd.DataFrame.from_dict(result, orient='index', columns=['webURL, Text'])
+    return pd.DataFrame.from_dict(result, orient='index', columns=['webURL', 'Text'])
 
 
 
@@ -39,8 +39,8 @@ def parallelize_dataframe(df, func, n_cores=4):
     return df
 
 if __name__ == '__main__':
-    csv = 'ArticlesByYearWithCommonWords/NewYorkTimesArticles2020-CommonWords.csv'
+    csv = 'ArticlesByYearWithCommonWords/NewYorkTimesArticles2019-CommonWords.csv'
     df = pd.read_csv(csv)
     df.drop_duplicates(subset='webURL', keep=False, inplace=True)
     min_hased = parallelize_dataframe(df, download_article)
-    min_hased.to_csv('NewYorkTimesArticles2020-Text.csv')
+    min_hased.to_csv('NewYorkTimesArticles2019-Text.csv')
