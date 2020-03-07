@@ -5,7 +5,6 @@ import nltk
 from nltk.corpus import stopwords
 stop_words = set(stopwords.words('english'))
 from collections import Counter
-from sklearn.metrics import jaccard_similarity_score
 
 import pandas as pd
 
