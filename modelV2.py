@@ -42,15 +42,10 @@ class AutoTag():
         # remove special characters and digits
         text=re.sub("(\\d|\\W)+"," ",text)
 
-        ##Convert to list from string
-        text = text.split()
-
-        ##Stemming
-        ps=PorterStemmer()
         #Lemmatisation
+        text = text.split()
         lem = WordNetLemmatizer()
-        text = [lem.lemmatize(word) for word in text if not word in
-                                                            self.__stop_words]
+        text = [lem.lemmatize(word) for word in text if not word in self.__stop_words]
 
         return text
 
