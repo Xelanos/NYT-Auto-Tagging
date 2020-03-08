@@ -26,7 +26,7 @@ class AutoTag():
         for index, row in df.iterrows():
             min_hash = self.make_min_hash(self.make_clean_words_list(row['Text']))
             self.__forest.add(row['webURL'], min_hash)
-            if index % 100 == 0 :print(index)
+            if index % 100 == 0 :print(index, end='\r', flush=True)
         self.__forest.index()
 
 
@@ -70,8 +70,9 @@ class AutoTag():
         return min_hash
 
 
-    def load_trained_model(self, trained_model_file_name):
-        self.__forest = pickle.load(open(trained_model_file_name), 'rb')
+    def load_trained_model(self, trained_model_file_name, num_of_permutations):
+        self.__forest = pickle.load(open(trained_model_file_name, 'rb'))
+        self.__num_permutation = num_of_permutations
 
     def save_model(self, file_name):
         pickle.dump(self.__forest, open(file_name, 'wb'))
